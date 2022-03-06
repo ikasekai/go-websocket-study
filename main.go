@@ -4,23 +4,45 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"net/http/httputil"
+
+	"github.com/gorilla/websocket"
 )
 
-func handler(w http.ResponseWriter, r *http.Request) {
-	dump, err := httputil.DumpRequest(r, true)
-	if err != nil {
-		http.Error(w, fmt.Sprint(err), http.StatusInternalServerError)
-		return
-	}
-	fmt.Println(string(dump))
-	fmt.Fprintf(w, "<html><body>hello go web</body></html>\n")
+var upgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
 }
 
 func main() {
 	var httpServer http.Server
 	//http.HandleFunc("/", handler)
-	http.Handle("/", http.FileServer(http.Dir("./static")))
+
+	http.HandleFunc("/echo", func(w http.ResponseWriter, r *http.Request) {
+		log.Println("ws connect")
+		conn, _ := upgrader.Upgrade(w, r, nil) // error ignored for sake of simplicity
+
+		for {
+			// Read message from browser
+			msgType, msg, err := conn.ReadMessage()
+			if err != nil {
+				return
+			}
+
+			// Print the message to the console
+			fmt.Printf("%s sent: %s\n", conn.RemoteAddr(), string(msg))
+
+			// Write message back to browser
+			if err = conn.WriteMessage(msgType, msg); err != nil {
+				return
+			}
+		}
+	})
+
+	//http.Handle("/", http.FileServer(http.Dir("./static")))
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "./static/index.html")
+	})
+
 	log.Println("start http listening :8080")
 	httpServer.Addr = ":8080"
 	log.Println(httpServer.ListenAndServe())
