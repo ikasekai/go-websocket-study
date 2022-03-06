@@ -6,3 +6,5 @@ services:
       - ".:/go"
     ports:
       - "8080:8080" # "ホストのポート:コンテナのポート"
+    command: >
+      go run hub.go client.go main.go
